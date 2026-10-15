@@ -7,8 +7,9 @@
 
 There is **one** script, [`run_experiment.py`](run_experiment.py), which you run once from Cloud Shell in step 5. Everything else happens in the Google Cloud console. Each step has a 📸 screenshot slot pointing at `docs/images/`. Drop your capture there and uncomment the image line below the slot.
 
-> **Cost:** about \$58 at regular list price for the default runs, roughly half while the
-> promotional credits apply (Gemini 4 Argon until 30 Nov 2026, Gemini 3.8 Flash until
+> **Cost:** about \$26 at regular list price for the default runs in the author's run
+> (\$23.17 for the waterfall, \$2.63 for R4U/R4G). Budget more headroom than that: model
+> behaviour varies from run to run. Roughly half while the promotional credits apply (Gemini 4 Argon until 30 Nov 2026, Gemini 3.8 Flash until
 > 31 Dec 2026). The script stops itself at `--max-usd`. Only the Gemini API calls, a few
 > short-lived context caches and a small BigQuery dataset are billed.
 
@@ -29,9 +30,6 @@ Console → project picker (top bar) → **New project**. Then check that billin
 
 A new project just for this demo keeps the billing breakdown clean.
 
-> 📸 **Screenshot:** Create project → `docs/images/c01_create_project.png`
-<!-- ![Create project](docs/images/c01_create_project.png) -->
-
 ## 2. Enable the APIs
 
 Console → **APIs & Services → Library**. Search for each API and click **Enable**:
@@ -40,9 +38,6 @@ Console → **APIs & Services → Library**. Search for each API and click **Ena
 - **BigQuery API** (usually enabled already)
 - **Cloud Trace API** (optional, for the trace screenshots)
 - **Cloud Monitoring API** (for the token burn alert)
-
-> 📸 **Screenshot:** Enable the Agent Platform API → `docs/images/c02_enable_api.png`
-<!-- ![Enable the Agent Platform API](docs/images/c02_enable_api.png) -->
 
 ## 3. Guardrails first: a budget and a token alert
 
@@ -66,9 +61,11 @@ guards are what actually stop spending.
 2. Pick resource **Publisher Model**, then metric **Token count**
    (`aiplatform.googleapis.com/publisher/online_serving/token_count`).
 3. **Rolling window:** 1 min. **Window function:** sum. Across time series: sum.
-4. **Threshold:** above 1,500,000 tokens per minute. Tune it to about 1.5× the peak you see
-   during the R5 run.
-5. Add a notification channel (e-mail), name the policy `TBOM token burn`, then **Create**.
+4. **Threshold:** about 1.5× the per-minute peak you see during a healthy R5 run. In the
+   blog's run, R5 peaked at about 673,000 tokens per minute in Cloud Monitoring, so the
+   threshold was 1,000,000.
+5. Add a notification channel (e-mail) if you want to be paged, name the policy
+   `TBOM demo - Gemini token burn rate`, then **Create**.
 
 The metric shows up in the picker only after the first Gemini call. You can create this
 policy after step 5 if needed.
@@ -234,8 +231,12 @@ Studio is optional and not needed for this demo.
   `gen_ai.usage.*` and `tbom.cost_usd` attributes. Save as `s03_trace.png`.
 - **Model observability:** Console → **Agent Platform (Gemini Platform) → Dashboard → Model
   observability → Show all metrics**. Save as `s04_model_observability.png`.
-- **Alert:** Console → **Monitoring → Alerting → Incidents**. The token burn alert should fire
-  during R4U. Save as `s11_alert.png`. If it doesn't fire, lower the threshold.
+- **Alert:** Console → **Monitoring → Alerting** → open the token burn policy and set the time
+  range to the R4U run. Save the condition chart as `s11_alert.png`. If an incident opened, it's
+  under **Incidents**. In the blog's run it did *not* fire: R4U peaked at about 681,000 tokens
+  per minute, almost the same as healthy R5. A project-wide rate alert catches a fleet running
+  away, not one looping claim; the per-claim limits in the script catch those. Don't lower the
+  threshold just to get a screenshot.
 
 ## 10. The real invoice by label (once the billing export has data)
 
@@ -282,8 +283,6 @@ Screenshots: `docs/images/c09_apigee_policies.png` and `docs/images/s14_apigee_a
 
 | File | Step | What |
 |---|---|---|
-| `docs/images/c01_create_project.png` | 1 | New project |
-| `docs/images/c02_enable_api.png` | 2 | Agent Platform API enabled |
 | `docs/images/c03_budget.png` | 3 | Budget with thresholds |
 | `docs/images/c04_alert_policy.png` | 3 | Token count alert policy |
 | `docs/images/c05_billing_export.png` | 4 | Detailed usage cost export settings |

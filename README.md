@@ -106,7 +106,7 @@ The TBOM ledger is self-contained in [`run_experiment.py`](run_experiment.py):
 | **R1** | ✂️ Trim the TBOM | 3 tools, compact tool output, fresh session per claim, short answers | Gemini 4 Argon |
 | **R2** | 🪜 Tier the models | Triage → adjudicate → frontier review **only** below 0.8 confidence | 3.5 Flash-Lite → 3.8 Flash → 4 Argon |
 | **R3** | 🧊 Cache the prefix | Static instructions + handbook first; **explicit** cache on Flash, **implicit** (durable) cache on Argon | same as R2 |
-| **R4U / R4G** | 🛑 Guard the loop | Fraud service times out for 20% of claims, without and with a retry budget + 8-call ceiling | same as R2 |
+| **R4U / R4G** | 🛑 Guard the loop | Starting from R3: the fraud service times out for 20% of claims, without and with a retry budget + 8-call ceiling | same as R2 |
 | **R5** | 🚢 Production | R3 + guards on healthy dependencies | same as R2 |
 
 Flex PayGo, Priority PayGo, Batch, Provisioned Throughput and Flexible Savings Plans are **not called**. Instead, [`v_lane_projection`](sql/05_lane_projection.sql) re-prices the measured tokens on each option, and [`09_pt_what_if.sql`](sql/09_pt_what_if.sql) sizes a hypothetical PT reservation.
@@ -196,7 +196,7 @@ Every record is generated with a fixed seed, so every reader gets identical file
 
 | Item | Approximate cost |
 | :--- | :--- |
-| Default runs (R0–R3 + R5 on 50 claims, R4U/R4G on 40) | **≈ \$58 at regular list price**. Roughly half while the pricing page's promotional credits apply (Gemini 4 Argon to 30 Nov 2026, Gemini 3.8 Flash to 31 Dec 2026) |
+| Default runs (R0–R3 + R5 on 50 claims, R4U/R4G on 40) | **≈ \$26 at regular list price** in the author's run (\$23.17 waterfall + \$2.63 loop-guard runs); leave headroom, results vary run to run. Roughly half while the pricing page's promotional credits apply (Gemini 4 Argon to 30 Nov 2026, Gemini 3.8 Flash to 31 Dec 2026) |
 | Explicit context caches | Cents. Deleted by the script at the end of each run |
 | BigQuery storage and queries | Cents for this data volume |
 | Cloud Trace / Monitoring | Usually within free allotments |
@@ -212,6 +212,11 @@ Every record is generated with a fixed seed, so every reader gets identical file
 - **Synthetic data is cleaner than real life.** The handbook and answer key agree perfectly, so treat accuracy as closer to an upper bound. The *shape* of the bill of materials carries over better than the exact numbers.
 - **Other consumption options are projections**, not measurements. Their latency and throttling aren't modelled. Gemini 4 Argon doesn't offer Flex PayGo; those calls stay at Standard price in the projection.
 - **The cost-per-outcome unit costs** (tool call, human review, rework) are illustrative. Edit them in [`sql/00_reference_tables.sql`](sql/00_reference_tables.sql).
+- **Things the author's run (`blog-1015`) exposed**, so you can look for them in yours:
+  - Gemini 3.8 Flash reported confidence 1.0 on every claim, so the R2 senior-review cascade never triggered. Self-reported confidence is a weak routing signal.
+  - One claim ("policy no. 003009") was denied as `POLICY_NOT_FOUND` from R1 onward. `calls.jsonl` records tool names, not arguments, so log arguments too if you need to debug lookups.
+  - In R4G, most of the extra cost came from thinking tokens, not retries. A call ceiling isn't a cost ceiling.
+  - The project-wide token burn alert did not fire during R4U; the per-minute rate stayed close to a healthy run.
 
 ---
 

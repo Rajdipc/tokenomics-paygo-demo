@@ -111,7 +111,7 @@ class RunConfig:
     strict_screening_prompt: bool = False
 
 
-R0 = RunConfig("R0", "Baseline: one frontier agent, everything in context")
+R0 = RunConfig("R0", "Baseline: one frontier agent does it all")
 R1 = dataclasses.replace(R0, run_id="R1", title="Trim the TBOM", toolset="relevant",
                          tool_output="compact", session="claim", output_style="concise")
 R2 = dataclasses.replace(R1, run_id="R2", title="Tier the models", flow="tiered", triage=FLASH_LITE,
@@ -439,8 +439,12 @@ class Conversation:
         self.meta.append(items)
 
     def user(self, text, **items):
-        if self.contents and self.contents[-1].role == "user":  # keep roles alternating
-            self.contents[-1].parts.append(types.Part(text=text))
+        # Merge into a trailing user turn only if it holds plain text. A turn that carries
+        # function responses must stay on its own: Gemini rejects a function-response turn
+        # that also contains new user text.
+        last = self.contents[-1] if self.contents else None
+        if last is not None and last.role == "user" and not any(p.function_response for p in last.parts or []):
+            last.parts.append(types.Part(text=text))
             for k, v in items.items():
                 self.meta[-1][k] = self.meta[-1].get(k, 0) + v
         else:
@@ -640,25 +644,25 @@ class Agent:
                    else contextlib.nullcontext())
         with span_cm as span:
             resp, latency = self.gemini.generate(model, contents, config)
-        u = resp.usage_metadata or types.GenerateContentResponseUsageMetadata()
-        row = {
-            "run_tag": self.run_tag, "run_id": self.cfg.run_id, "claim_ref": claim["claim_ref"], "step": step,
-            "call_index": len(calls), "model": model, "tier": TIER[model], "started_at": started,
-            "latency_ms": latency, "traffic_type": str(getattr(u.traffic_type, "value", u.traffic_type) or ""),
-            "prompt_tokens": u.prompt_token_count or 0, "cached_tokens": u.cached_content_token_count or 0,
-            "output_tokens": u.candidates_token_count or 0, "thoughts_tokens": u.thoughts_token_count or 0,
-            "function_calls": ",".join(fc.name for fc in resp.function_calls or []),
-            "labels": json.dumps(config.labels or {}), "simulated": self.gemini.simulated,
-        }
-        row["cost_usd"] = token_cost(model, row["prompt_tokens"], row["cached_tokens"],
-                                     row["output_tokens"], row["thoughts_tokens"])
-        row.update({f"tbom_{k}": v for k, v in allocate(items, row["prompt_tokens"]).items()})
-        if span is not None:  # token counts and cost on the Cloud Trace span
-            for key, value in {"gen_ai.request.model": model, "gen_ai.usage.input_tokens": row["prompt_tokens"],
-                               "gen_ai.usage.output_tokens": row["output_tokens"] + row["thoughts_tokens"],
-                               "tbom.cached_tokens": row["cached_tokens"], "tbom.cost_usd": row["cost_usd"],
-                               "claim_ref": claim["claim_ref"]}.items():
-                span.set_attribute(key, value)
+            u = resp.usage_metadata or types.GenerateContentResponseUsageMetadata()
+            row = {
+                "run_tag": self.run_tag, "run_id": self.cfg.run_id, "claim_ref": claim["claim_ref"], "step": step,
+                "call_index": len(calls), "model": model, "tier": TIER[model], "started_at": started,
+                "latency_ms": latency, "traffic_type": str(getattr(u.traffic_type, "value", u.traffic_type) or ""),
+                "prompt_tokens": u.prompt_token_count or 0, "cached_tokens": u.cached_content_token_count or 0,
+                "output_tokens": u.candidates_token_count or 0, "thoughts_tokens": u.thoughts_token_count or 0,
+                "function_calls": ",".join(fc.name for fc in resp.function_calls or []),
+                "labels": json.dumps(config.labels or {}), "simulated": self.gemini.simulated,
+            }
+            row["cost_usd"] = token_cost(model, row["prompt_tokens"], row["cached_tokens"],
+                                         row["output_tokens"], row["thoughts_tokens"])
+            row.update({f"tbom_{k}": v for k, v in allocate(items, row["prompt_tokens"]).items()})
+            if span is not None:  # token counts and cost on the Cloud Trace span
+                for key, value in {"gen_ai.request.model": model, "gen_ai.usage.input_tokens": row["prompt_tokens"],
+                                   "gen_ai.usage.output_tokens": row["output_tokens"] + row["thoughts_tokens"],
+                                   "tbom.cached_tokens": row["cached_tokens"], "tbom.cost_usd": row["cost_usd"],
+                                   "claim_ref": claim["claim_ref"]}.items():
+                    span.set_attribute(key, value)
         calls.append(row)
         self.out_calls.write(row)
         return resp
@@ -713,14 +717,20 @@ class Agent:
 
 
 def setup_tracer():
-    """Optional: send spans to Cloud Trace (--trace)."""
+    """Optional: send spans to Cloud Trace (--trace), billed to GOOGLE_CLOUD_PROJECT."""
+    import google.auth
+    from google.cloud.trace_v2 import TraceServiceClient
     from opentelemetry import trace
     from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    project = os.environ["GOOGLE_CLOUD_PROJECT"]
+    # Use the same project for quota, so a different quota project in local ADC can't break export.
+    creds, _ = google.auth.default(quota_project_id=project)
+    exporter = CloudTraceSpanExporter(project_id=project, client=TraceServiceClient(credentials=creds))
     provider = TracerProvider(resource=Resource.create({"service.name": "tbom-claims-demo"}))
-    provider.add_span_processor(BatchSpanProcessor(CloudTraceSpanExporter()))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     return trace.get_tracer("tbom"), provider
 
@@ -781,7 +791,7 @@ def main(argv=None, gemini=None):
         ok = sum(r["correct"] for r in rows)
         llm = sum(r["cost_usd"] for r in rows) + storage + creation
         prompt = sum(r["prompt_tokens"] for r in rows)
-        print(f"{run_id:4s} {cfg.title[:34]:34s} claims={len(rows):3d} accuracy={ok / n:6.1%} "
+        print(f"{run_id:4s} {cfg.title[:40]:40s} claims={len(rows):3d} accuracy={ok / n:6.1%} "
               f"tokens/claim={(prompt + sum(r['output_tokens'] + r['thoughts_tokens'] for r in rows)) / n:9,.0f} "
               f"cached={sum(r['cached_tokens'] for r in rows) / max(prompt, 1):4.0%} "
               f"$/claim={llm / n:.4f} errors={sum(1 for r in rows if r['error'])}")
