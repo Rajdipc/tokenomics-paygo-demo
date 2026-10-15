@@ -1,0 +1,47 @@
+[
+ {
+  "name": "run_tag",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "run_id",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "title",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "n_claims",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "started_at",
+  "type": "TIMESTAMP",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "finished_at",
+  "type": "TIMESTAMP",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cache_storage_usd",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cache_creation_usd",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "simulated",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ }
+]

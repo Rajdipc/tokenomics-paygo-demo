@@ -1,0 +1,4 @@
+google-genai>=2.20.0
+# Optional, only for --trace (spans in Cloud Trace):
+opentelemetry-sdk>=1.30.0
+opentelemetry-exporter-gcp-trace>=1.9.0

@@ -1,0 +1,122 @@
+[
+ {
+  "name": "run_tag",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "run_id",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "claim_ref",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "step",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "call_index",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "model",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tier",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "started_at",
+  "type": "TIMESTAMP",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "latency_ms",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "traffic_type",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "prompt_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cached_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "output_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "thoughts_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "function_calls",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "labels",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "simulated",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cost_usd",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_system_prompt",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_handbook",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_tool_schemas",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_history",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_tool_results",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tbom_claim_input",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ }
+]

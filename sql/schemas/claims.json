@@ -1,0 +1,142 @@
+[
+ {
+  "name": "run_tag",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "run_id",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "claim_ref",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "product",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "complexity",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "decision",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "reason_code",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "payout_usd",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "confidence",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "expected_decision",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "expected_reason",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "expected_payout",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "correct",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "reviewed_by_frontier",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "llm_calls",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tool_calls",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "decoy_calls",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "tool_failures",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "fault_injected",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "guard_tripped",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "prompt_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cached_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "output_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "thoughts_tokens",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "cost_usd",
+  "type": "FLOAT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "latency_ms",
+  "type": "INT64",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "simulated",
+  "type": "BOOL",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "error",
+  "type": "STRING",
+  "mode": "NULLABLE"
+ }
+]
