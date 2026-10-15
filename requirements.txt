@@ -1,4 +1,9 @@
-google-genai>=2.20.0
-# Optional, only for --trace (spans in Cloud Trace):
+google-genai>=1.0.0
+google-adk>=2.5.0,<3.0.0
+google-cloud-aiplatform[agent-engines]>=1.90.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+# Optional, for --trace (spans in Cloud Trace):
 opentelemetry-sdk>=1.30.0
 opentelemetry-exporter-gcp-trace>=1.9.0

@@ -1,11 +1,15 @@
-# 🧭 RUNBOOK: the TBOM demo, step by step in the Cloud Console
+# 🧭 RUNBOOK: the TBOM demo & ADK Agent deployment, step by step
 
 [![Repo](https://img.shields.io/badge/GitHub-tokenomics--paygo--demo-181717?logo=github)](https://github.com/Rajdipc/tokenomics-paygo-demo)
-[![Console first](https://img.shields.io/badge/Cloud%20Console-first-4285F4?logo=googlecloud&logoColor=white)](#)
-[![One script](https://img.shields.io/badge/Scripts-just%20one-FBBC04)](run_experiment.py)
-[![Nothing deployed](https://img.shields.io/badge/Deployments-none-34A853)](#)
+[![Google ADK](https://img.shields.io/badge/Google%20ADK-2.x%20Workflow-4285F4?logo=googlecloud&logoColor=white)](cymbal_claims_agent/)
+[![Experiment](https://img.shields.io/badge/Experiment-run__experiment.py-FBBC04)](run_experiment.py)
+[![Deploy](https://img.shields.io/badge/Deploy-Cloud%20Run%20%7C%20Agent%20Runtime-34A853)](deploy/)
 
-There is **one** script, [`run_experiment.py`](run_experiment.py), which you run once from Cloud Shell in step 5. Everything else happens in the Google Cloud console. Each step has a 📸 screenshot slot pointing at `docs/images/`. Drop your capture there and uncomment the image line below the slot.
+This runbook walks through both parts of the repository:
+1. **Running the 7-design TBOM benchmark** ([`run_experiment.py`](run_experiment.py)) from Cloud Shell and analyzing the results in BigQuery, Cloud Monitoring, Cloud Trace, and Cloud Billing.
+2. **Creating and deploying the production `R5` Google ADK agent** ([`cymbal_claims_agent/`](cymbal_claims_agent/)) to **Cloud Run** and **Gemini Platform Agent Runtime (Agent Engine)** using the scripts in [`deploy/`](deploy/).
+
+Each step has a 📸 screenshot slot pointing at `docs/images/`. Drop your capture there and uncomment the image line below the slot.
 
 > **Cost:** about \$26 at regular list price for the default runs in the author's run
 > (\$23.17 for the waterfall, \$2.63 for R4U/R4G). Budget more headroom than that: model
@@ -110,7 +114,7 @@ can take a few hours.
 You need a billing role on the billing account for this. If you don't have one, skip steps 4
 and 10; the post then uses the script's own list-price estimates.
 
-## 5. Run the experiment from Cloud Shell (the only command-line step)
+## 5. Run the experiment & deploy the Google ADK agent from Cloud Shell
 
 Open **Cloud Shell** (the `>_` icon in the console top bar). Then clone the repo:
 
@@ -120,7 +124,11 @@ cd tokenomics-paygo-demo
 pip install -r requirements.txt
 cp .env.example .env && nano .env      # set GOOGLE_CLOUD_PROJECT and TBOM_RUN_TAG
 source .env
+```
 
+### 5A. Run the 7-design TBOM experiment (`R0` through `R5`, `R4U`, `R4G`)
+
+```bash
 # The waterfall: the same 50 claims through R0, R1, R2, R3 and R5 (30-60 minutes)
 python run_experiment.py --runs R0 R1 R2 R3 R5 --n 50 --trace
 
@@ -147,6 +155,33 @@ The labels end up in Cloud Billing. The results land in `results/<run_tag>/` as 
 
 To get the files to your computer for step 6, use the Cloud Shell ⋮ menu → **Download**. Enter
 each file path, for example `tokenomics-paygo-demo/results/<run_tag>/calls.jsonl`.
+
+### 5B. Inspect, test, and deploy the production `R5` Google ADK agent (`cymbal_claims_agent/`)
+
+The production `R5` architecture is packaged as a standard **Google ADK 2.x** agent in [`cymbal_claims_agent/`](cymbal_claims_agent/):
+- [`cymbal_claims_agent/agent.py`](cymbal_claims_agent/agent.py): Defines `root_agent` (an ADK `Workflow` chaining `triage_agent` on `gemini-3.5-flash-lite` and `adjudicator_agent` on `gemini-3.8-flash` with static-first `SKILL.md` + `policy_handbook.md` prefix) and `app` (`google.adk.apps.App`).
+- [`cymbal_claims_agent/tbom.py`](cymbal_claims_agent/tbom.py): Defines `TBOMLedgerPlugin(BasePlugin)`, which attaches Cloud Billing labels before every model turn (`before_model_callback`) and records the 6-item TBOM breakdown and list-price USD cost after every turn (`after_model_callback`) into `session.state["tbom_calls"]`.
+- [`cymbal_claims_agent/tools.py`](cymbal_claims_agent/tools.py): Defines the 4 compact ADK tool functions (`get_policy`, `get_claims_history`, `screen_fraud`, `submit_decision`) with deterministic policy ID normalization (`003009` → `POL-003009`) and the `retry_budget=1` circuit breaker.
+- [`cymbal_claims_agent/fast_api_app.py`](cymbal_claims_agent/fast_api_app.py): FastAPI server exposing `GET /api/health`, `POST /api/adjudicate`, Agent Runtime (`reasoning_engine`) endpoints, and the ADK web UI.
+
+```bash
+# 1. Enable APIs and create the least-privilege Service Account
+bash deploy/01_enable_apis.sh
+bash deploy/02_service_account_iam.sh
+
+# 2. Smoke-test the ADK agent locally in-process (or run `adk web . --port 8080`)
+python deploy/05_test_deployed_agent.py --claim-ref CLM-000001
+
+# 3. Option A — Deploy to Cloud Run (builds container via Cloud Build & deploys service)
+bash deploy/03_deploy_cloud_run.sh
+SERVICE_URL="$(gcloud run services describe cymbal-claims-tbom-agent \
+  --region="${DEPLOY_REGION:-us-central1}" --project="$GOOGLE_CLOUD_PROJECT" --format='value(status.url)')"
+python deploy/05_test_deployed_agent.py --cloud-run-url "$SERVICE_URL" --claim-ref CLM-000001
+
+# 4. Option B — Deploy to Gemini Platform Agent Runtime (managed ReasoningEngine)
+python deploy/04_deploy_agent_runtime.py
+python deploy/05_test_deployed_agent.py --agent-runtime-id auto --claim-ref CLM-000001
+```
 
 ## 6. Load the results into BigQuery (console upload)
 
@@ -286,17 +321,29 @@ Screenshots: `docs/images/c09_apigee_policies.png` and `docs/images/s14_apigee_a
 
 ## 12. Clean up / Destroy this deployment
 
-Because the experiment runs on **Standard Pay-as-You-Go**, there are no Provisioned Throughput reservations or long-running servers. However, to leave **zero ongoing storage, monitoring, or artifact footprint**, run either the CLI or Console teardown below.
+To leave **zero ongoing storage, container, agent runtime, monitoring, or artifact footprint**, run the automated teardown script (`deploy/99_destroy.sh`) or follow the Console teardown below.
 
-### Option A: 1-Minute Cloud Shell CLI Teardown
+### Option A: Automated 1-Command CLI Teardown (`deploy/99_destroy.sh`)
+
+```bash
+# Deletes Cloud Run service, Artifact Registry repo, Agent Runtime (ReasoningEngine),
+# GCS staging bucket, BigQuery dataset, Cloud Monitoring alert & channel, and Gemini context caches:
+bash deploy/99_destroy.sh
+```
+
+Or run individual commands manually:
 
 ```bash
 source .env
 
-# 1. Delete the BigQuery dataset (tables + views)
+# 1. Delete Cloud Run service & Artifact Registry repository (if deployed)
+gcloud run services delete cymbal-claims-tbom-agent --region="${DEPLOY_REGION:-us-central1}" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+gcloud artifacts repositories delete cymbal-claims-tbom --location="${DEPLOY_REGION:-us-central1}" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+
+# 2. Delete the BigQuery dataset (tables + views)
 bq --project_id="$GOOGLE_CLOUD_PROJECT" rm -r -f -d "$GOOGLE_CLOUD_PROJECT:tokenomics_demo"
 
-# 2. Delete the Cloud Monitoring token-burn alert policy and email notification channel
+# 3. Delete the Cloud Monitoring token-burn alert policy and email notification channel
 for policy in $(gcloud alpha monitoring policies list --project="$GOOGLE_CLOUD_PROJECT" \
   --filter='displayName:"TBOM"' --format='value(name)'); do
   gcloud alpha monitoring policies delete "$policy" --project="$GOOGLE_CLOUD_PROJECT" --quiet
@@ -307,7 +354,7 @@ for channel in $(gcloud beta monitoring channels list --project="$GOOGLE_CLOUD_P
   gcloud beta monitoring channels delete "$channel" --project="$GOOGLE_CLOUD_PROJECT" --quiet
 done
 
-# 3. Verify no active Gemini context caches remain (run_experiment.py deletes them at exit; TTL is 1h)
+# 4. Verify no active Gemini context caches remain (run_experiment.py deletes them at exit; TTL is 1h)
 python -c "
 import os
 from google import genai
@@ -318,12 +365,14 @@ for c in client.caches.list():
         client.caches.delete(name=c.name)
 "
 
-# 4. Remove local result logs
-rm -rf results/
+# 5. Remove local result logs
+rm -rf results/ deployment_metadata.json
 ```
 
 ### Option B: Cloud Console UI Teardown
 
+- **Cloud Run** (if deployed in Step 5B): **Cloud Run → Services** → select `cymbal-claims-tbom-agent` → **Delete**. Then open **Artifact Registry → Repositories** → delete `cymbal-claims-tbom`.
+- **Agent Runtime** (if deployed in Step 5B): **Agent Platform (Gemini Platform) → Agent Engine / Reasoning Engines** → delete `cymbal-claims-tbom-agent`, and delete the `<PROJECT_ID>-tbom-agent-staging` bucket in **Cloud Storage**.
 - **BigQuery:** **BigQuery → Studio** → click `⋮` next to `tokenomics_demo` → **Delete** → type `delete` to confirm. Keep `billing_export` if you use it elsewhere.
 - **Monitoring → Alerting:** **Monitoring → Alerting → Policies** → click `⋮` next to `TBOM demo - Gemini token burn rate` → **Delete**. Under **Edit notification channels**, remove the demo email channel if no longer needed.
 - **Billing → Budgets & alerts:** Select your demo budget → click **Delete** in the top bar.
