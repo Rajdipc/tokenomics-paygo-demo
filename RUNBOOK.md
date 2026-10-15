@@ -39,36 +39,55 @@ Console → **APIs & Services → Library**. Search for each API and click **Ena
 - **Cloud Trace API** (optional, for the trace screenshots)
 - **Cloud Monitoring API** (for the token burn alert)
 
-## 3. Guardrails first: a budget and a token alert
+## 3. Guardrails first: a Cloud Billing Budget and a Cloud Monitoring Token-Burn Alert
 
-**Budget:**
+Before calling the Gemini API, put two different guardrails in place—one for **monthly finance tracking** and one for **real-time operational runaway loops**:
 
-1. Console → **Billing → Budgets & alerts → Create budget**.
-2. **Scope:** this project.
-3. **Amount:** for example \$100.
-4. **Thresholds:** 50%, 90% and 100%. Add 100% of *forecasted* spend as well.
-5. **Finish.**
+| Guardrail | Service | Metric & Window | What It Catches | Does It Stop Traffic? |
+|---|---|---|---|---|
+| **Cloud Billing Budget** | Cloud Billing → Budgets & alerts | Cumulative **monthly USD spend** (`$`) across the billing period | Gradual monthly cost overruns or unexpected daily/weekly spend drift | **No** (sends email alerts at 50%, 90%, 100% actual & forecasted; updates every few hours) |
+| **Token-Burn Rate Alert** | Cloud Monitoring → Alerting | Real-time **tokens per minute** (`token_count` over a 60-second rolling window) | Sudden runaway agent retry loops or traffic spikes (`R4U`) within 60–120 seconds | **No** (fires an immediate email/PagerDuty incident; your harness loop guards and `--max-usd` stop the process) |
 
-Budgets send alerts; they don't cap spend. The script's `--max-usd` and the agent's loop
-guards are what actually stop spending.
+### 3A. Create the Cloud Billing Budget (`c03_budget.png`)
+
+1. Open [Cloud Billing → Budgets & alerts](https://console.cloud.google.com/billing) in the Google Cloud Console (select your billing account if prompted).
+2. Click **+ CREATE BUDGET** in the top bar.
+3. **Step 1 — Scope:**
+   - **Name:** `TBOM Demo - Monthly Budget`
+   - **Time range:** `Monthly`
+   - **Projects:** Uncheck *All projects* and select only your demo project.
+   - **Services:** Leave as *All services* (or select *Vertex AI / Gemini Platform* and *BigQuery*). Click **Next**.
+4. **Step 2 — Amount:**
+   - **Budget type:** `Specified amount`
+   - **Target amount:** `$100.00` (the full experiment costs ~$19 at list price, or ~$10 after promotional credits). Click **Next**.
+5. **Step 3 — Actions:**
+   - Set **Percent of budget** threshold rules at **`50%`** (`$50`), **`90%`** (`$90`), and **`100%`** (`$100`) of **Actual** spend.
+   - Click **Add threshold rule**, set **Trigger on** = **`Forecasted`** at **`100%`**.
+   - Check **Email alerts to billing admins and users** (or link a Cloud Monitoring email channel).
+6. Click **Finish**.
 
 > 📸 **Screenshot:** Budget → `docs/images/c03_budget.png`
 <!-- ![Budget](docs/images/c03_budget.png) -->
 
-**Token burn alert:**
+### 3B. Create the Cloud Monitoring Token-Burn Rate Alert (`c04_alert_policy.png`)
 
-1. Console → **Monitoring → Alerting → Create policy → Select a metric**.
-2. Pick resource **Publisher Model**, then metric **Token count**
-   (`aiplatform.googleapis.com/publisher/online_serving/token_count`).
-3. **Rolling window:** 1 min. **Window function:** sum. Across time series: sum.
-4. **Threshold:** about 1.5× the per-minute peak you see during a healthy R5 run. In the
-   blog's run, R5 peaked at about 673,000 tokens per minute in Cloud Monitoring, so the
-   threshold was 1,000,000.
-5. Add a notification channel (e-mail) if you want to be paged, name the policy
-   `TBOM demo - Gemini token burn rate`, then **Create**.
-
-The metric shows up in the picker only after the first Gemini call. You can create this
-policy after step 5 if needed.
+1. Open [Cloud Monitoring → Alerting](https://console.cloud.google.com/monitoring/alerting) in your project.
+2. First, ensure your email notification channel exists: click **Edit notification channels** at the top → scroll to **Email** → click **Add New** → enter your email address (e.g., `your-email@domain.com`) and display name → click **Save**.
+3. Go back to **Monitoring → Alerting** and click **+ CREATE POLICY**:
+   - **Select a metric:** Click the metric dropdown, uncheck **Show only active resources & metrics** if you haven't run a Gemini call yet, and select **`Publisher Model`** → **` Online serving`** → **`Token count`** (`aiplatform.googleapis.com/publisher/online_serving/token_count`). Click **Apply**.
+   - **Rolling window:** `1 min`
+   - **Rolling window function:** `sum` (calculates tokens per minute).
+   - **Time series aggregation:** `sum`, leaving **Time series group by** empty (sums input + output + thinking tokens across all models in the project). Click **Next**.
+4. **Configure alert trigger:**
+   - **Condition types:** `Threshold`
+   - **Alert trigger:** `Any time series violates`
+   - **Threshold position:** `Above threshold`
+   - **Threshold value:** `750000` (750,000 tokens/minute—about 1.25× the healthy `R5` peak, so normal `R5` traffic stays green while an unguarded runaway burst triggers the alert).
+   - **Condition name:** `Gemini token burn rate > 750k tokens/min`. Click **Next**.
+5. **Configure notifications and finalize:**
+   - Select your **Email** notification channel under **Notification Channels**.
+   - Set **Incident autoclose duration** to `30 min`.
+   - Name the alert policy **`TBOM demo - Gemini token burn rate`** and click **Create Policy**.
 
 > 📸 **Screenshot:** Alert policy → `docs/images/c04_alert_policy.png`
 <!-- ![Alert policy](docs/images/c04_alert_policy.png) -->
@@ -231,12 +250,10 @@ Studio is optional and not needed for this demo.
   `gen_ai.usage.*` and `tbom.cost_usd` attributes. Save as `s03_trace.png`.
 - **Model observability:** Console → **Agent Platform (Gemini Platform) → Dashboard → Model
   observability → Show all metrics**. Save as `s04_model_observability.png`.
-- **Alert:** Console → **Monitoring → Alerting** → open the token burn policy and set the time
-  range to the R4U run. Save the condition chart as `s11_alert.png`. If an incident opened, it's
-  under **Incidents**. In the blog's run it did *not* fire: R4U peaked at about 681,000 tokens
-  per minute, almost the same as healthy R5. A project-wide rate alert catches a fleet running
-  away, not one looping claim; the per-claim limits in the script catch those. Don't lower the
-  threshold just to get a screenshot.
+- **Alert (`R4U` Failure Scenario Verification):** Console → **Monitoring → Alerting** → open the **`TBOM demo - Gemini token burn rate`** policy and set the time range to your `R5` / `R4U` / `R4G` run window. Save the condition chart as `s11_alert.png`.
+  - In the blog's run, healthy `R5` peaked at **645,546 tokens/min** (safely below the **750,000 tokens/min** threshold).
+  - When `R4U` hit the 20% upstream timeout fault on `screen_fraud` without loop guards, the 15-call retry loops (`SAFETY_CAP_REACHED`) drove the token rate above 750,000 tokens/min for four consecutive minutes—peaking at **905,391 tokens/min**—and fired the email alert.
+  - When `R4G` ran next with `max_same_call=2` + prompt fallback, the token rate stayed below the threshold (peaking at **726,753 tokens/min**) and resolved 100% of claims accurately.
 
 ## 10. The real invoice by label (once the billing export has data)
 
@@ -267,15 +284,51 @@ resources, so check Apigee pricing (Evaluation or Pay-as-you-go) first.
 
 Screenshots: `docs/images/c09_apigee_policies.png` and `docs/images/s14_apigee_analytics.png`.
 
-## 12. Clean up
+## 12. Clean up / Destroy this deployment
 
-- **BigQuery** → ⋮ next to `tokenomics_demo` → **Delete**. Keep `billing_export` if you use it
-  elsewhere.
-- **Monitoring → Alerting:** delete the `TBOM token burn` policy.
-- **Billing → Budgets & alerts:** delete the demo budget.
-- **Context caches:** the script deletes its caches at the end of each run, and any it misses
-  expire after 1 hour.
-- **Apigee** (only if you ran step 11): delete the proxy and the organization or environment.
+Because the experiment runs on **Standard Pay-as-You-Go**, there are no Provisioned Throughput reservations or long-running servers. However, to leave **zero ongoing storage, monitoring, or artifact footprint**, run either the CLI or Console teardown below.
+
+### Option A: 1-Minute Cloud Shell CLI Teardown
+
+```bash
+source .env
+
+# 1. Delete the BigQuery dataset (tables + views)
+bq --project_id="$GOOGLE_CLOUD_PROJECT" rm -r -f -d "$GOOGLE_CLOUD_PROJECT:tokenomics_demo"
+
+# 2. Delete the Cloud Monitoring token-burn alert policy and email notification channel
+for policy in $(gcloud alpha monitoring policies list --project="$GOOGLE_CLOUD_PROJECT" \
+  --filter='displayName:"TBOM"' --format='value(name)'); do
+  gcloud alpha monitoring policies delete "$policy" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+done
+
+for channel in $(gcloud beta monitoring channels list --project="$GOOGLE_CLOUD_PROJECT" \
+  --filter='displayName:"TBOM"' --format='value(name)'); do
+  gcloud beta monitoring channels delete "$channel" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+done
+
+# 3. Verify no active Gemini context caches remain (run_experiment.py deletes them at exit; TTL is 1h)
+python -c "
+import os
+from google import genai
+client = genai.Client(vertexai=True, project=os.environ['GOOGLE_CLOUD_PROJECT'], location=os.environ.get('GOOGLE_CLOUD_LOCATION','global'))
+for c in client.caches.list():
+    if 'tbom' in (c.display_name or ''):
+        print('Deleting cache:', c.name)
+        client.caches.delete(name=c.name)
+"
+
+# 4. Remove local result logs
+rm -rf results/
+```
+
+### Option B: Cloud Console UI Teardown
+
+- **BigQuery:** **BigQuery → Studio** → click `⋮` next to `tokenomics_demo` → **Delete** → type `delete` to confirm. Keep `billing_export` if you use it elsewhere.
+- **Monitoring → Alerting:** **Monitoring → Alerting → Policies** → click `⋮` next to `TBOM demo - Gemini token burn rate` → **Delete**. Under **Edit notification channels**, remove the demo email channel if no longer needed.
+- **Billing → Budgets & alerts:** Select your demo budget → click **Delete** in the top bar.
+- **Context caches:** `run_experiment.py` deletes its explicit cache in a `finally:` block at the end of `R3` and `R5`, and any orphaned cache expires automatically after its 1-hour TTL.
+- **Apigee** (only if you ran step 11): Delete the API proxy and the evaluation organization/environment.
 
 ---
 

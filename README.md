@@ -41,7 +41,7 @@ Every decision is scored against an answer key, so you get **cost per *correctly
 | [🎯 How You Can Use This Repo](#-how-you-can-use-this-repo) | [🧪 The Five Designs](#-the-five-designs) |
 | [🏗️ Architecture](#%EF%B8%8F-architecture) | [📊 What You Get in BigQuery](#-what-you-get-in-bigquery) |
 | [🧬 The Data (100% Synthetic)](#-the-data-100-synthetic) | [✅ Verifying It Worked](#-verifying-it-worked) |
-| [💸 Cost & Cleanup](#-cost--cleanup) | [⚠️ Assumptions & Honest Caveats](#%EF%B8%8F-assumptions--honest-caveats) |
+| [💸 Cost & How to Destroy This Deployment](#-cost--how-to-destroy-this-deployment-complete-teardown) | [⚠️ Assumptions & Honest Caveats](#%EF%B8%8F-assumptions--honest-caveats) |
 | [📰 Companion Blog Post](#-companion-blog-post) | [📚 Official Documentation](#-official-documentation) |
 
 ---
@@ -95,6 +95,7 @@ The TBOM ledger is self-contained in [`run_experiment.py`](run_experiment.py):
 2. **Allocate the prompt.** Copy `allocate()`. Pass it the character size of each part of the request you assembled (system prompt, documents, tool schemas, history, tool results, user input). It splits the billed prompt tokens so the parts sum exactly to the invoice.
 3. **Label every request** using `Agent.labels()`. Keep keys low-cardinality (app, feature, step, tier). Labels reach Cloud Billing for PayGo traffic, and each key holds at most 1,000 unique values.
 4. **Reuse the views.** Upload your rows with the same [`schemas`](sql/schemas/) and the views in [`sql/`](sql/) work unchanged.
+5. **Package domain procedures as Skills (`SKILL.md`) and persistent rules (`AGENTS.md`).** See [`skills/cymbal-claims-adjudication/SKILL.md`](skills/cymbal-claims-adjudication/SKILL.md) (which keeps active discovery overhead to ~35 tokens and loads the 9-step procedure on demand) and [`AGENTS.md`](AGENTS.md) (which encodes workspace rules once instead of repeating them across multi-turn chats).
 
 ---
 
@@ -141,6 +142,10 @@ flowchart LR
 ```text
 .
 ├── run_experiment.py          # 🐍 the ONLY script: agent + TBOM ledger + runner (7 commented sections)
+├── AGENTS.md                  # 📏 persistent workspace rules (Principle 9: fix rules, don't re-prompt)
+├── skills/                    # 🧩 reusable agent skill (Principle 2: progressive disclosure)
+│   └── cymbal-claims-adjudication/
+│       └── SKILL.md           #     ~35-token header; loads the 9-step procedure only on demand
 ├── requirements.txt           # google-genai (+ optional OpenTelemetry for --trace)
 ├── .env.example               # GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, TBOM_RUN_TAG
 ├── RUNBOOK.md                 # 🧭 step-by-step Cloud Console guide with screenshot slots
@@ -192,16 +197,60 @@ Every record is generated with a fixed seed, so every reader gets identical file
 
 ---
 
-## 💸 Cost & Cleanup
+## 💸 Cost & How to Destroy This Deployment (Complete Teardown)
 
 | Item | Approximate cost |
 | :--- | :--- |
-| Default runs (R0–R3 + R5 on 50 claims, R4U/R4G on 40) | **≈ \$26 at regular list price** in the author's run (\$23.17 waterfall + \$2.63 loop-guard runs); leave headroom, results vary run to run. Roughly half while the pricing page's promotional credits apply (Gemini 4 Argon to 30 Nov 2026, Gemini 3.8 Flash to 31 Dec 2026) |
-| Explicit context caches | Cents. Deleted by the script at the end of each run |
+| Default runs (R0–R3 + R5 on 50 claims, R4U/R4G on 40) | **≈ \$25–\$30 at regular list price**; leave headroom as model behaviour varies run to run. Roughly half while the pricing page's promotional credits apply (Gemini 4 Argon to 30 Nov 2026, Gemini 3.8 Flash to 31 Dec 2026) |
+| Explicit context caches | Cents. Automatically deleted by `run_experiment.py` at the end of each run (and 1-hour TTL) |
 | BigQuery storage and queries | Cents for this data volume |
 | Cloud Trace / Monitoring | Usually within free allotments |
 
-**Cleanup:** delete the `tokenomics_demo` dataset, the alert policy and the budget. See [RUNBOOK step 12](RUNBOOK.md#12-clean-up).
+Because nothing always-on is deployed (no VMs, GKE clusters, or Cloud Run services), nothing bills per hour after the script exits. To completely remove every resource created during the walkthrough:
+
+### Option A — 1-Minute Cloud Shell CLI Teardown
+
+```bash
+source .env   # loads GOOGLE_CLOUD_PROJECT
+
+# 1. Delete the BigQuery dataset (tables + views)
+bq --project_id="$GOOGLE_CLOUD_PROJECT" rm -r -f -d "$GOOGLE_CLOUD_PROJECT:tokenomics_demo"
+
+# 2. Delete the Cloud Monitoring token-burn alert policy and email notification channel
+for p in $(gcloud monitoring policies list --project="$GOOGLE_CLOUD_PROJECT" \
+  --filter='displayName:"TBOM"' --format='value(name)'); do
+  gcloud monitoring policies delete "$p" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+done
+for ch in $(gcloud beta monitoring channels list --project="$GOOGLE_CLOUD_PROJECT" \
+  --filter='displayName:"TBOM"' --format='value(name)'); do
+  gcloud beta monitoring channels delete "$ch" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+done
+
+# 3. Delete any leftover Gemini explicit context caches (already auto-deleted on exit)
+python - <<'EOF'
+import os
+from google import genai
+c = genai.Client(vertexai=True, project=os.environ["GOOGLE_CLOUD_PROJECT"],
+                 location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"))
+for cache in c.caches.list():
+    if (cache.display_name or "").startswith("tbom-"):
+        c.caches.delete(name=cache.name)
+        print("deleted cache:", cache.name)
+EOF
+
+# 4. Remove local result files
+rm -rf results/
+```
+
+### Option B — Cloud Console UI Teardown
+
+1. **BigQuery dataset:** Console → **BigQuery** → Explorer → click `⋮` next to `tokenomics_demo` → **Delete** → type `delete` → **Delete**.
+2. **Token-burn alert policy & notification channel:** Console → **Monitoring → Alerting → Policies** → click `⋮` on `TBOM demo - Gemini token burn rate` → **Delete**. Under **Edit notification channels**, delete the demo email channel if you added one just for this test.
+3. **Budget:** Console → **Billing → Budgets & alerts** → select your demo budget → **Delete**.
+4. **Optional Apigee gateway** (only if you ran Step 11): Console → **Apigee** → delete the proxy and evaluation organization.
+5. **Dedicated demo project:** If you created a brand-new project solely for this demo, Console → **IAM & Admin → Settings → Shut down** removes everything in one step.
+
+See [RUNBOOK step 12](RUNBOOK.md#12-clean-up--destroy-this-deployment) for full details.
 
 ---
 
@@ -212,11 +261,10 @@ Every record is generated with a fixed seed, so every reader gets identical file
 - **Synthetic data is cleaner than real life.** The handbook and answer key agree perfectly, so treat accuracy as closer to an upper bound. The *shape* of the bill of materials carries over better than the exact numbers.
 - **Other consumption options are projections**, not measurements. Their latency and throttling aren't modelled. Gemini 4 Argon doesn't offer Flex PayGo; those calls stay at Standard price in the projection.
 - **The cost-per-outcome unit costs** (tool call, human review, rework) are illustrative. Edit them in [`sql/00_reference_tables.sql`](sql/00_reference_tables.sql).
-- **Things the author's run (`blog-1015`) exposed**, so you can look for them in yours:
-  - Gemini 3.8 Flash reported confidence 1.0 on every claim, so the R2 senior-review cascade never triggered. Self-reported confidence is a weak routing signal.
-  - One claim ("policy no. 003009") was denied as `POLICY_NOT_FOUND` from R1 onward. `calls.jsonl` records tool names, not arguments, so log arguments too if you need to debug lookups.
-  - In R4G, most of the extra cost came from thinking tokens, not retries. A call ceiling isn't a cost ceiling.
-  - The project-wide token burn alert did not fire during R4U; the per-minute rate stayed close to a healthy run.
+- **Lessons exposed while building the harness:**
+  - **Self-reported confidence is a weak routing signal:** Gemini 3.8 Flash reported confidence `1.0` on every claim in `R2`, so the senior-review cascade never fired. Route cascades on observable signals (claim complexity, dollar amount, or disagreement between two fast passes).
+  - **Normalize identifiers in code, not prompts:** Casual customer e-mails write `"policy no. 003009"` instead of `"POL-003009"`. Normalizing inside `Tools.norm_policy_id()` prevents avoidable `POLICY_NOT_FOUND` misses that otherwise trigger \$18 of human rework.
+  - **Never let a prompt contradict a loop guard:** If a prompt says *"always obtain a successful screening score"* while the tool guard says *"do not retry,"* the model can burn tens of thousands of thinking tokens trying to reconcile the contradiction. Fix the prompt alongside the guard (`AGENTS.md` rule #4).
 
 ---
 

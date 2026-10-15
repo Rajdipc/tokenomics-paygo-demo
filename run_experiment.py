@@ -121,7 +121,7 @@ R3 = dataclasses.replace(R2, run_id="R3", title="Cache the prefix", handbook="ca
 R4U = dataclasses.replace(R3, run_id="R4U", title="Flaky dependency, no guards", faults=True,
                           strict_screening_prompt=True)
 R4G = dataclasses.replace(R4U, run_id="R4G", title="Flaky dependency, loop guards", retry_budget=1,
-                          max_calls=8, loop_guard=True)
+                          max_calls=8, loop_guard=True, strict_screening_prompt=False)
 R5 = dataclasses.replace(R3, run_id="R5", title="Production: R3 + guards", retry_budget=1,
                          max_calls=8, loop_guard=True)
 RUNS = {r.run_id: r for r in (R0, R1, R2, R3, R4U, R4G, R5)}
@@ -214,17 +214,24 @@ class Tools:
         self.calls = self.failures = self.decoy_calls = 0
         self.screening_down = self.guard_tripped = False
 
+    @staticmethod
+    def norm_policy_id(raw: Any) -> str:
+        s = str(raw or "").strip().upper()
+        m = re.search(r"(\d{6})", s)
+        return f"POL-{m.group(1)}" if m else s
+
     def run(self, name: str, args: dict) -> str:
         self.calls += 1
         try:
             if name == "get_policy":
-                return self.policy(str(args.get("policy_id", "")).strip().upper())
+                return self.policy(self.norm_policy_id(args.get("policy_id", "")))
             if name == "get_claims_history":
                 return self.claims_history(str(args.get("customer_id", "")).strip().upper(),
                                            str(args.get("as_of_date", ""))[:10],
                                            int(args.get("lookback_days") or 365))
             if name == "screen_fraud":
-                return self.screen(str(args.get("policy_id", "")), float(args.get("amount_claimed") or 0))
+                return self.screen(self.norm_policy_id(args.get("policy_id", "")),
+                                   float(args.get("amount_claimed") or 0))
         except (TypeError, ValueError) as exc:
             return self.dump({"status": "ERROR", "error": f"bad arguments: {exc}"})
         self.decoy_calls += 1
@@ -271,9 +278,11 @@ class Tools:
             if self.cfg.retry_budget is not None and self.failures > self.cfg.retry_budget:
                 self.guard_tripped = True
                 return self.dump({"status": "UNAVAILABLE", "retryable": False, "message":
-                                  "Fraud screening is unavailable after a retry. Do not call screen_fraud "
-                                  "again. Apply handbook Section 2 step 6 (SCREENING_UNAVAILABLE)."})
-            return self.dump({"status": "ERROR", "error": "UPSTREAM_TIMEOUT", "retryable": True})
+                                  "Fraud screening is unavailable after 1 retry. Do not call screen_fraud "
+                                  "again. Apply handbook Section 2 in order: if steps 1-5 do not deny the "
+                                  "claim, use step 6 (SCREENING_UNAVAILABLE)."})
+            return self.dump({"status": "ERROR", "error": "UPSTREAM_TIMEOUT", "retryable": True,
+                              "message": "Transient timeout; retry screen_fraud."})
         rng = random.Random(f"{policy_id}:{amount:.2f}")
         score = rng.randint(1, 95)
         if self.cfg.tool_output == "compact":
@@ -308,9 +317,12 @@ Use get_policy, get_claims_history and screen_fraud, then call submit_decision o
 Apply handbook Section 2 in order and stop at the first step that decides.
 Justification: at most 40 words, cite the step and show the payout arithmetic."""
 
-STRICT_LINE = "\nAlways obtain a successful fraud screening result before you submit a decision."
+STRICT_LINE = ("\nMANDATORY OVERRIDE: You must obtain a successful screen_fraud result before calling "
+               "submit_decision. Whenever screen_fraud returns UPSTREAM_TIMEOUT with retryable=true, "
+               "call screen_fraud again instead of escalating.")
 
 TRIAGE_SYSTEM = """Extract claim facts from a customer message for Cymbal Insurance. Return JSON only.
+Format policy_id as POL-XXXXXX (6 digits).
 Peril must be one of: COLLISION, THEFT, GLASS, VANDALISM, HAIL, FLOOD, ROADSIDE, FIRE, WATER_DAMAGE,
 WIND_HAIL, EARTHQUAKE, ELECTRONICS, TRIP_CANCELLATION, MEDICAL_ABROAD, BAGGAGE_LOSS, FLIGHT_DELAY,
 ACCIDENT, ILLNESS, DENTAL, MOLD, WEAR_AND_TEAR, PRE_EXISTING. Dates as YYYY-MM-DD; amount in USD.
