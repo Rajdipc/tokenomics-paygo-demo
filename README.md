@@ -217,9 +217,9 @@ source .env   # loads GOOGLE_CLOUD_PROJECT
 bq --project_id="$GOOGLE_CLOUD_PROJECT" rm -r -f -d "$GOOGLE_CLOUD_PROJECT:tokenomics_demo"
 
 # 2. Delete the Cloud Monitoring token-burn alert policy and email notification channel
-for p in $(gcloud monitoring policies list --project="$GOOGLE_CLOUD_PROJECT" \
+for p in $(gcloud alpha monitoring policies list --project="$GOOGLE_CLOUD_PROJECT" \
   --filter='displayName:"TBOM"' --format='value(name)'); do
-  gcloud monitoring policies delete "$p" --project="$GOOGLE_CLOUD_PROJECT" --quiet
+  gcloud alpha monitoring policies delete "$p" --project="$GOOGLE_CLOUD_PROJECT" --quiet
 done
 for ch in $(gcloud beta monitoring channels list --project="$GOOGLE_CLOUD_PROJECT" \
   --filter='displayName:"TBOM"' --format='value(name)'); do

@@ -104,7 +104,7 @@ class RunConfig:
     session: str = "queue"              # "queue" = 3 claims share a chat; "claim" = fresh per claim
     handbook: str = "after_claim"       # "after_claim" (dynamic first) or "cached" (static first)
     output_style: str = "verbose"       # "verbose" justifications or "concise"
-    max_calls: int = 14                 # hard safety cap so nothing can run away
+    max_calls: int = 14                 # max adjudicate turns per claim (+1 triage call in tiered runs -> 15 total in R4U)
     retry_budget: int | None = None     # None = unlimited retries of a failing tool
     loop_guard: bool = False            # escalate instead of stopping when max_calls is hit
     faults: bool = False                # fraud screening times out for ~20% of claims
@@ -197,6 +197,8 @@ DECOYS = [decl(n, d, {p: {"type": "STRING", "description": p.replace("_", " ")} 
 
 
 def toolset(name: str) -> list[types.Tool]:
+    # R1+ ("relevant") scopes tools to the 4 declared in skills/cymbal-claims-adjudication/SKILL.md
+    # (AGENTS.md Rule #2), avoiding the 22 unused decoy schemas sent on every turn in R0.
     decls = [GET_POLICY, GET_HISTORY, SCREEN] + (DECOYS if name == "all" else []) + [SUBMIT]
     return [types.Tool(function_declarations=decls)]
 
@@ -216,6 +218,8 @@ class Tools:
 
     @staticmethod
     def norm_policy_id(raw: Any) -> str:
+        # AGENTS.md Rule #3: normalize casual 6-digit references ("policy no. 003009" -> "POL-003009")
+        # deterministically in code rather than relying on prompt instructions.
         s = str(raw or "").strip().upper()
         m = re.search(r"(\d{6})", s)
         return f"POL-{m.group(1)}" if m else s

@@ -30,5 +30,9 @@
 
 **Outcome mix across the 5,000 claims:** about 35% approve, 37% deny and 28% escalate. A claim counts as *correctly resolved* when the decision matches and, for approve or escalate, the payout is within max(\$1, 1%) of the expected value.
 
+- **Why `POLICY_NOT_FOUND` has 0 rows in `answer_key.csv`:** Every incoming claim references a real policy (`POL-000001`..`POL-012000`), but 20% of customer e-mails write the ID casually as `"policy no. 003009"` instead of `"POL-003009"`. Step 1 therefore tests whether the agent/tool normalizes identifiers before lookup (`Tools.norm_policy_id()`).
+- **Why `screen_fraud` is advisory when healthy:** When `screen_fraud` is up, its `1–95` score is logged as advisory context while deterministic policy rules govern the payout. In the fault-injection runs (`R4U` / `R4G`), `screen_fraud` times out on every 5th claim (20%), testing Step 6 (`SCREENING_UNAVAILABLE`) and the harness loop guards.
+- **Channel vs. e-mail signatures:** `channel` (`email`, `web_form`, `broker`) is assigned independently of the message body template, so some `web_form` or `broker` records intentionally carry mobile signatures or confidentiality footers (copy-pasted customer text).
+
 > [!CAUTION]
 > Real claims are messier than generated ones, and real policy wordings aren't perfectly consistent. Treat the experiment's accuracy figures as closer to an upper bound.
