@@ -22,4 +22,3 @@ number in them comes from the real run.
 | `table_7_pt_what_if.png` | Choosing how to pay for the tokens | Markdown table | Real run `blog-1015` + `sql/09` sizing model |
 | `diagram_3_lane_decision_tree.png` | Choosing how to pay for the tokens | Mermaid diagram | Static text |
 
-Screenshots (📸 callouts) are not here; they go in `../images/`. See `../SCREENSHOT_GUIDE.md`.
