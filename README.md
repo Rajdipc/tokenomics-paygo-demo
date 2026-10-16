@@ -12,7 +12,7 @@
 [![Cloud Billing](https://img.shields.io/badge/Cloud%20Billing-Labels%20%E2%86%92%20BigQuery%20export-EA4335?logo=googlecloud&logoColor=white)](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/capabilities/add-labels-to-api-calls)
 [![Synthetic data](https://img.shields.io/badge/Data-100%25%20synthetic-00897B)](#-the-data-100-synthetic)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Medium](https://img.shields.io/badge/Medium-Companion%20blog%20post-black?logo=medium&logoColor=white)](#-companion-blog-post)
+[![Medium](https://img.shields.io/badge/Medium-Companion%20blog%20post-black?logo=medium&logoColor=white)]([#-companion-blog-post](https://medium.com/@rajdipch/81f6203fcbbc))
 
 `#AITokenomics` &nbsp;•&nbsp; `#GoogleADK` &nbsp;•&nbsp; `#Gemini` &nbsp;•&nbsp; `#GeminiPlatform` &nbsp;•&nbsp; `#AgentRuntime` &nbsp;•&nbsp; `#CloudRun` &nbsp;•&nbsp; `#FinOps` &nbsp;•&nbsp; `#AIAgents` &nbsp;•&nbsp; `#ContextCaching` &nbsp;•&nbsp; `#BigQuery` &nbsp;•&nbsp; `#CloudBilling` &nbsp;•&nbsp; `#CostPerOutcome`
 
