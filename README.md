@@ -20,7 +20,7 @@
 
 **What does one task of your AI agent cost, why does it cost that, and what happens to quality when you make it cheaper?**
 
-This repository builds a production **insurance-claims agent on Gemini Platform** (formerly Vertex AI) using **Google ADK 2.x** ([`cymbal_claims_agent/`](cymbal_claims_agent/)), deploys it to **Cloud Run** and **Gemini Platform Agent Runtime (Agent Engine)** ([`deploy/`](deploy/)), and benchmarks the same claims across **five architectural designs** ([`run_experiment.py`](run_experiment.py)), applying one cost lever at a time. Every model call is itemized into a **Token Bill of Materials (TBOM)**:
+This repository builds a **insurance-claims agent on Gemini Platform** (formerly Vertex AI) using **Google ADK 2.x** ([`cymbal_claims_agent/`](cymbal_claims_agent/)), deploys it to **Cloud Run** and **Gemini Platform Agent Runtime (Agent Engine)** ([`deploy/`](deploy/)), and benchmarks the same claims across **five architectural designs** ([`run_experiment.py`](run_experiment.py)), applying one cost lever at a time. Every model call is itemized into a **Token Bill of Materials (TBOM)**:
 
 - system prompt
 - handbook
