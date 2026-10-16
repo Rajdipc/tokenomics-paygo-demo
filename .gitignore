@@ -7,3 +7,4 @@ results/
 *.egg-info/
 build/
 deployment_metadata.json
+SCREENSHOT_GUIDE.md

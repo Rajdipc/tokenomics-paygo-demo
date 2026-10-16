@@ -121,7 +121,7 @@ Open **Cloud Shell** (the `>_` icon in the console top bar). Then clone the repo
 ```bash
 git clone https://github.com/Rajdipc/tokenomics-paygo-demo.git
 cd tokenomics-paygo-demo
-pip install -r requirements.txt
+pip install -U -r requirements.txt
 cp .env.example .env && nano .env      # set GOOGLE_CLOUD_PROJECT and TBOM_RUN_TAG
 source .env
 ```

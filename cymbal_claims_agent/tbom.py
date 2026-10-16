@@ -24,6 +24,36 @@ import time
 from typing import Any
 
 from google.genai import types
+from pydantic import BaseModel, ConfigDict
+
+
+def _ensure_genai_types_compat() -> None:
+    """Shim missing UpperCamelCase types on older pre-installed google-genai (e.g., Cloud Shell)."""
+    orig_getattr = getattr(types, "__getattr__", None)
+    if getattr(orig_getattr, "_tbom_compat", False):
+        return
+
+    def _compat_getattr(name: str) -> Any:
+        if orig_getattr is not None:
+            try:
+                return orig_getattr(name)
+            except AttributeError:
+                pass
+        if name and name[0].isupper() and not name.startswith("_"):
+            shim = type(
+                name,
+                (BaseModel,),
+                {"__module__": types.__name__, "model_config": ConfigDict(extra="allow")},
+            )
+            setattr(types, name, shim)
+            return shim
+        raise AttributeError(f"module {types.__name__!r} has no attribute {name!r}")
+
+    _compat_getattr._tbom_compat = True  # type: ignore[attr-defined]
+    types.__getattr__ = _compat_getattr  # type: ignore[attr-defined]
+
+
+_ensure_genai_types_compat()
 
 # =============================================================================
 # 1. Generally Available (GA) models and Standard PayGo list prices
@@ -160,7 +190,7 @@ def _estimate_request_chars(llm_request: Any) -> dict[str, int]:
 
 try:
     from google.adk.plugins.base_plugin import BasePlugin
-except ImportError:  # pragma: no cover - fallback when google-adk is not installed
+except (ImportError, AttributeError):  # pragma: no cover - fallback when google-adk is not installed
     class BasePlugin:  # type: ignore[no-redef]
         def __init__(self, name: str = "tbom"):
             self.name = name

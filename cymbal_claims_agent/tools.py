@@ -28,7 +28,7 @@ from google.genai import types
 
 try:
     from google.adk.tools import ToolContext
-except ImportError:  # pragma: no cover
+except (ImportError, AttributeError):  # pragma: no cover
     ToolContext = Any  # type: ignore[misc,assignment]
 
 ROOT_DIR = pathlib.Path(__file__).resolve().parent.parent

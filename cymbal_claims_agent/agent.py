@@ -320,7 +320,7 @@ try:
         root_agent=root_agent,
         plugins=[TBOMLedgerPlugin(run_id="R5")],
     )
-except ImportError:  # pragma: no cover - allows running offline unit tests without google-adk
+except (ImportError, AttributeError):  # pragma: no cover - allows running offline unit tests without google-adk
     root_agent = None  # type: ignore[assignment]
     app = None  # type: ignore[assignment]
 

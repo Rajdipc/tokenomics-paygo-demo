@@ -82,7 +82,7 @@ def main() -> None:
 
     deployable_app = AdkApp(app=adk_app)
     requirements = [
-        "google-genai>=1.0.0",
+        "google-genai>=2.20.0",
         "google-adk>=2.5.0,<3.0.0",
         "google-cloud-aiplatform[agent-engines]>=1.90.0",
         "pydantic>=2.7.0",

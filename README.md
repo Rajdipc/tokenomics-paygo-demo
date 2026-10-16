@@ -53,7 +53,7 @@ Every decision is scored against a deterministic answer key, so you measure **co
 ```bash
 git clone https://github.com/Rajdipc/tokenomics-paygo-demo.git
 cd tokenomics-paygo-demo
-pip install -r requirements.txt
+pip install -U -r requirements.txt
 cp .env.example .env && nano .env      # set GOOGLE_CLOUD_PROJECT and TBOM_RUN_TAG (no project IDs are hardcoded)
 source deploy/00_variables.sh
 ```
