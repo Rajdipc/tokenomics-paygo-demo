@@ -391,7 +391,7 @@ See [RUNBOOK step 12](RUNBOOK.md#12-clean-up--destroy-this-deployment) for full 
 
 ## 📰 Companion Blog Post
 
-📝 **The Token Bill of Materials: A Measured Guide to AI Tokenomics on Google Cloud** (Google Cloud Community on Medium, *link coming soon*). It covers the business problem, the economics (four meters, five layers, the Apigee gateway, hidden costs, cost per outcome), and walks through the results of this repo.
+📝 **The Token Bill of Materials: A Measured Guide to AI Tokenomics on Google Cloud** (Google Cloud Community on Medium, [*link*](https://medium.com/@rajdipch/81f6203fcbbc)). It covers the business problem, the economics (four meters, five layers, the Apigee gateway, hidden costs, cost per outcome), and walks through the results of this repo.
 
 ---
 
