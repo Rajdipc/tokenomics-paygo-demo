@@ -283,8 +283,7 @@ Studio is optional and not needed for this demo.
 - **Trace:** Console → **Observability → Trace explorer**, filtered on service
   `tbom-claims-demo`. Open one R0 claim and one R5 claim. Each model-call span has
   `gen_ai.usage.*` and `tbom.cost_usd` attributes. Save as `s03_trace.png`.
-- **Model observability:** Console → **Agent Platform (Gemini Platform) → Dashboard → Model
-  observability → Show all metrics**. Save as `s04_model_observability.png`.
+- **Model observability:** Console → **Monitoring → Dashboards → Vertex AI Model Garden Monitoring** (`https://console.cloud.google.com/monitoring/dashboards/integration/vertex_ai.vertex-ai-model-garden`, or **Monitoring → Metrics explorer** on `aiplatform.googleapis.com/publisher/online_serving/token_count` grouped by `model_user_id`). Save as `s04_model_observability.png`.
 - **Alert (`R4U` Failure Scenario Verification):** Console → **Monitoring → Alerting** → open the **`TBOM demo - Gemini token burn rate`** policy and set the time range to your `R5` / `R4U` / `R4G` run window. Save the condition chart as `s11_alert.png`.
   - In the blog's run, healthy `R5` peaked at **645,546 tokens/min** (safely below the **750,000 tokens/min** threshold).
   - When `R4U` hit the 20% upstream timeout fault on `screen_fraud` without loop guards, the 15-call retry loops (`SAFETY_CAP_REACHED`) drove the token rate above 750,000 tokens/min for four consecutive minutes—peaking at **905,391 tokens/min**—and fired the email alert.
