@@ -1,6 +1,7 @@
 # 🧭 RUNBOOK: the TBOM demo & ADK Agent deployment, step by step
 
 [![Repo](https://img.shields.io/badge/GitHub-tokenomics--paygo--demo-181717?logo=github)](https://github.com/Rajdipc/tokenomics-paygo-demo)
+[![Medium](https://img.shields.io/badge/Medium-Companion%20blog%20post-black?logo=medium&logoColor=white)](https://medium.com/@rajdipch/81f6203fcbbc)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-2.x%20Workflow-4285F4?logo=googlecloud&logoColor=white)](cymbal_claims_agent/)
 [![Experiment](https://img.shields.io/badge/Experiment-run__experiment.py-FBBC04)](run_experiment.py)
 [![Deploy](https://img.shields.io/badge/Deploy-Cloud%20Run%20%7C%20Agent%20Runtime-34A853)](deploy/)
@@ -71,7 +72,8 @@ Before calling the Gemini API, put two different guardrails in place—one for *
 6. Click **Finish**.
 
 > 📸 **Screenshot:** Budget → `docs/images/c03_budget.png`
-<!-- ![Budget](docs/images/c03_budget.png) -->
+
+![Budget](docs/images/c03_budget.png)
 
 ### 3B. Create the Cloud Monitoring Token-Burn Rate Alert (`c04_alert_policy.png`)
 
@@ -94,7 +96,8 @@ Before calling the Gemini API, put two different guardrails in place—one for *
    - Name the alert policy **`TBOM demo - Gemini token burn rate`** and click **Create Policy**.
 
 > 📸 **Screenshot:** Alert policy → `docs/images/c04_alert_policy.png`
-<!-- ![Alert policy](docs/images/c04_alert_policy.png) -->
+
+![Alert policy](docs/images/c04_alert_policy.png)
 
 ## 4. (Recommended) Turn on the Cloud Billing export to BigQuery
 
@@ -109,7 +112,8 @@ The export table (`gcp_billing_export_resource_v1_…`) appears after the first 
 can take a few hours.
 
 > 📸 **Screenshot:** Billing export → `docs/images/c05_billing_export.png`
-<!-- ![Billing export](docs/images/c05_billing_export.png) -->
+
+![Billing export](docs/images/c05_billing_export.png)
 
 You need a billing role on the billing account for this. If you don't have one, skip steps 4
 and 10; the post then uses the script's own list-price estimates.
@@ -151,7 +155,8 @@ The labels end up in Cloud Billing. The results land in `results/<run_tag>/` as 
 `calls.jsonl`, `claims.jsonl` and `runs.jsonl`.
 
 > 📸 **Screenshot:** Run summary in Cloud Shell → `docs/images/s02_run_r0_r5.png`
-<!-- ![Run summary in Cloud Shell](docs/images/s02_run_r0_r5.png) -->
+
+![Run summary in Cloud Shell](docs/images/s02_run_r0_r5.png)
 
 To get the files to your computer for step 6, use the Cloud Shell ⋮ menu → **Download**. Enter
 each file path, for example `tokenomics-paygo-demo/results/<run_tag>/calls.jsonl`.
@@ -196,7 +201,8 @@ python deploy/05_test_deployed_agent.py --agent-runtime-id auto --claim-ref CLM-
    `runs.jsonl` → table `runs` (schema `sql/schemas/runs.json`).
 
 > 📸 **Screenshot:** Create table from upload → `docs/images/c06_upload_table.png`
-<!-- ![Create table from upload](docs/images/c06_upload_table.png) -->
+
+![Create table from upload](docs/images/c06_upload_table.png)
 
 If you run more experiments later, upload again with **Advanced options → Write preference:
 Append to table**.
@@ -230,6 +236,8 @@ SELECT run_label, cost_per_claim_usd, accuracy FROM tokenomics_demo.v_run_summar
 WHERE run_id IN ('R0','R1','R2','R3','R5') ORDER BY run_order;
 ```
 
+![Waterfall](docs/images/s05_bq_waterfall.png)
+
 **Token Bill of Materials (`s06_bq_tbom.png`):** stacked bar; X `run_id`; series
 `line_item`; Y `usd_per_claim`. Run it again with `tokens_per_claim` as Y.
 
@@ -238,11 +246,15 @@ SELECT run_id, line_item, usd_per_claim, tokens_per_claim FROM tokenomics_demo.v
 WHERE run_id IN ('R0','R1','R2','R3','R5') ORDER BY run_id, line_item;
 ```
 
+![TBOM by run](docs/images/s06_bq_tbom.png)
+
 **Variance (`s07_bq_variance.png`):** bar chart; X `run_id`; Y `p50_tokens` and `p95_tokens`.
 
 ```sql
 SELECT run_id, p50_tokens, p95_tokens, p95_to_p50_ratio FROM tokenomics_demo.v_token_variance ORDER BY run_id;
 ```
+
+![Token variance](docs/images/s07_bq_variance.png)
 
 **Cost per outcome (`s08_bq_cpo.png`):** stacked bar; X `run_id`; Y the four
 `*_per_correct` columns.
@@ -252,6 +264,8 @@ SELECT run_id, llm_usd_per_correct, tools_usd_per_correct, review_usd_per_correc
 FROM tokenomics_demo.v_cpo_by_run ORDER BY run_id;
 ```
 
+![Cost per outcome](docs/images/s08_bq_cpo.png)
+
 **Consumption lanes (`s09_bq_lanes.png`):** grouped bar; X `run_id`; series `lane`; Y
 `usd_per_claim`.
 
@@ -259,6 +273,8 @@ FROM tokenomics_demo.v_cpo_by_run ORDER BY run_id;
 SELECT run_id, lane, usd_per_claim, change_vs_standard FROM tokenomics_demo.v_lane_projection
 WHERE run_id IN ('R0','R5') ORDER BY run_id, lane;
 ```
+
+![Consumption lanes](docs/images/s09_bq_lanes.png)
 
 **Loop guard (`s10_loop_guard.png`):** bar chart; X `run_id`; Y `avg_cost_usd` and
 `max_llm_calls`.
@@ -283,11 +299,19 @@ Studio is optional and not needed for this demo.
 - **Trace:** Console → **Observability → Trace explorer**, filtered on service
   `tbom-claims-demo`. Open one R0 claim and one R5 claim. Each model-call span has
   `gen_ai.usage.*` and `tbom.cost_usd` attributes. Save as `s03_trace.png`.
+
+  ![Trace explorer](docs/images/s03_trace.png)
+
 - **Model observability:** Console → **Monitoring → Dashboards → Vertex AI Model Garden Monitoring** (`https://console.cloud.google.com/monitoring/dashboards/integration/vertex_ai.vertex-ai-model-garden`, or **Monitoring → Metrics explorer** on `aiplatform.googleapis.com/publisher/online_serving/token_count` grouped by `model_user_id`). Save as `s04_model_observability.png`.
+
+  ![Model observability](docs/images/s04_model_observability.png)
+
 - **Alert (`R4U` Failure Scenario Verification):** Console → **Monitoring → Alerting** → open the **`TBOM demo - Gemini token burn rate`** policy and set the time range to your `R5` / `R4U` / `R4G` run window. Save the condition chart as `s11_alert.png`.
   - In the blog's run, healthy `R5` peaked at **645,546 tokens/min** (safely below the **750,000 tokens/min** threshold).
   - When `R4U` hit the 20% upstream timeout fault on `screen_fraud` without loop guards, the 15-call retry loops (`SAFETY_CAP_REACHED`) drove the token rate above 750,000 tokens/min for four consecutive minutes—peaking at **905,391 tokens/min**—and fired the email alert.
   - When `R4G` ran next with `max_same_call=2` + prompt fallback, the token rate stayed below the threshold (peaking at **726,753 tokens/min**) and resolved 100% of claims accurately.
+
+  ![Token burn alert firing](docs/images/s11_alert.png)
 
 ## 10. The real invoice by label (once the billing export has data)
 
@@ -297,9 +321,11 @@ Studio is optional and not needed for this demo.
 3. Query and screenshot `s13_billing_labels.png`:
 
 ```sql
-SELECT run_id, step, tier, sku, net_cost FROM tokenomics_demo.v_billing_by_label
+SELECT run_id, step, tier, sku, gross_cost, credits, net_cost FROM tokenomics_demo.v_billing_by_label
 WHERE run_tag = 'YOUR_RUN_TAG' ORDER BY run_id, net_cost DESC;
 ```
+
+![Billing by label](docs/images/s13_billing_labels.png)
 
 Explicit-cache storage has no request labels, so it shows up as its own SKU with an empty
 `run`.
