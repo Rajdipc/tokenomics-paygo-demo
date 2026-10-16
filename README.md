@@ -13,10 +13,15 @@
 [![Synthetic data](https://img.shields.io/badge/Data-100%25%20synthetic-00897B)](#-the-data-100-synthetic)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Medium](https://img.shields.io/badge/Medium-Companion%20blog%20post-black?logo=medium&logoColor=white)](https://medium.com/@rajdipch/81f6203fcbbc)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://console.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https://github.com/Rajdipc/tokenomics-paygo-demo.git&cloudshell_open_in_editor=README.md)
 
 `#AITokenomics` &nbsp;•&nbsp; `#GoogleADK` &nbsp;•&nbsp; `#Gemini` &nbsp;•&nbsp; `#GeminiPlatform` &nbsp;•&nbsp; `#AgentRuntime` &nbsp;•&nbsp; `#CloudRun` &nbsp;•&nbsp; `#FinOps` &nbsp;•&nbsp; `#AIAgents` &nbsp;•&nbsp; `#ContextCaching` &nbsp;•&nbsp; `#BigQuery` &nbsp;•&nbsp; `#CloudBilling` &nbsp;•&nbsp; `#CostPerOutcome`
 
 ---
+
+> 📰 **Companion Technical Deep Dive:** **[The Token Bill of Materials: A Measured Guide to AI Tokenomics on Google Cloud](https://medium.com/@rajdipch/81f6203fcbbc)**  
+> ⭐ *If you find this benchmark and ADK 2.x TBOM plugin useful for your own agent cost modeling, please **star this repository**!*
 
 **What does one task of your AI agent cost, why does it cost that, and what happens to quality when you make it cheaper?**
 
@@ -32,6 +37,12 @@ This repository builds a **insurance-claims agent on Gemini Platform** (formerly
 - output
 
 Every decision is scored against a deterministic answer key, so you measure **cost per *correctly resolved* claim (`CpO`)**, not just cost per token.
+
+![AI Tokenomics & TBOM Reference Architecture](docs/images/diagram_2_architecture.png)
+
+| Five-Design Benchmark Scoreboard (`R0` → `R5`) | BigQuery Cost-per-Outcome Waterfall (`R0` → `R5`) |
+| :---: | :---: |
+| ![Five-Design Scoreboard](docs/images/table_5_scoreboard.png) | ![BigQuery CpO Waterfall](docs/images/s05_bq_waterfall.png) |
 
 **Contents**
 | | |
