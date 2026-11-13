@@ -81,6 +81,7 @@ python deploy/05_test_deployed_agent.py --claim-ref CLM-000001
 python run_experiment.py --runs R0 R5 --n 10                    # quick smoke run (~$2 at list price)
 python run_experiment.py --runs R0 R1 R2 R3 R5 --n 50 --trace   # the full cost waterfall
 python run_experiment.py --runs R4U R4G --n 40 --trace          # loop guards vs a flaky dependency
+python workload_grid.py --emit-metrics                           # does the token-burn alert tell busy from broken? (~$7, ~55 min)
 ```
 
 **4. Deploy the production `R5` agent to Cloud Run or Gemini Platform Agent Runtime:**
@@ -245,6 +246,55 @@ Flex PayGo, Priority PayGo, Batch, Provisioned Throughput and Flexible Savings P
 
 ---
 
+## 🧯 Does the Token-Burn Alert Tell Busy From Broken? (`workload_grid.py`)
+
+The `R4U` test showed a fleet-wide token-rate alert firing during a retry storm, but it held arrival
+rate constant. [`workload_grid.py`](workload_grid.py) asks the harder question a reader raised: **can
+the alert tell a busy healthy run from a quieter looping one?** It runs the unguarded `R4U` agent on a
+grid that varies two things independently:
+
+- **Arrival rate**, open loop: 4 or 8 claims per minute arrive on a clock, whether or not earlier claims have finished.
+- **Faulty-tool fraction**: 0%, 5% or 20% of claims hit the `screen_fraud` timeout.
+
+Every 15 s it records tokens/min (what the alert watches) next to workload signals: admitted and
+completed claims per minute, in-flight claims, age of the oldest unfinished claim, tokens and model calls
+per admitted claim, and the most model calls made by any single claim in the last minute. With
+`--emit-metrics` these are also written to Cloud Monitoring as `custom.googleapis.com/tbom/workload/*`.
+
+```bash
+python workload_grid.py --rates 4 8 --fault-rates 0 0.05 0.2 --minutes 6 --run-tag grid-1113 --emit-metrics
+python workload_grid.py --analyze results/grid-1113 --cm-check            # summary table + chart
+# Re-test on fresh claims with thresholds frozen from the first grid:
+python workload_grid.py --rates 4 8 --fault-rates 0 0.05 --claim-offset 300 --run-tag grid-1113-confirm
+python workload_grid.py --analyze results/grid-1113-confirm --calibrate-on results/grid-1113
+```
+
+Every threshold is calibrated on **one** healthy run (4/min, 0% faulty), the same way the `R4` alert
+was set. Results across both grids (10 cells, 360 claims, \$10 at list price):
+
+| Detection rule | False pages on healthy cells | Faulty cells caught |
+| :--- | :---: | :---: |
+| Fixed token rate, calibrated on the quiet run (1.2x peak, 60 s) | **2 of 4** (every busy healthy run) | 4 of 6 (misses quiet 5%) |
+| Fixed token rate, re-calibrated on the busy run | 0 of 4 | **1 of 6** |
+| Tokens per admitted claim, rolling 3 min (1.2x) | 0 of 4 | 2 of 6 (only 20% faulty) |
+| Oldest unfinished claim (> 60 s) | 0 of 4 | 1 of 6 |
+| **Max model calls by one claim (> 2x healthy)** | **0 of 4** | **6 of 6** |
+
+On Cloud Monitoring's own `token_count` metric, the busy healthy run peaked at **493,540 tokens/min**
+and the quiet run with 20% looping claims at **477,726**. Same token rate, opposite situations. Rate-normalized
+signals were the same at 4/min and 8/min (61.4K vs 61.3K tokens per admitted claim), and every one of the
+341 healthy claims made exactly 4 model calls, while all 19 faulty claims made 12 to 15.
+
+![Workload grid signals](docs/images/s15_workload_grid.png)
+
+> [!NOTE]
+> The calls-per-claim rule was added after the first grid, so it was checked on fresh claims (`--claim-offset 300`) with
+> thresholds frozen from the first grid. It caught both faulty cells and stayed quiet on both healthy ones. The age rule
+> underperformed because these loops were fast (15 calls in 32 to 108 s), so age is a better signal for slow hangs than for
+> fast retry storms. Keep the absolute token quota and budget as the backstop; use the workload signals to explain why spend moved.
+
+---
+
 ## 🏗️ Architecture
 
 ```mermaid
@@ -289,6 +339,7 @@ flowchart LR
 ├── Dockerfile                         # 🐳 Production container image (Python 3.12, non-root, port 8080)
 ├── .dockerignore                      #     Excludes `.git`, `results/`, `.venv/` from Cloud Build context
 ├── run_experiment.py                  # 🔬 5-design TBOM waterfall & loop-guard experiment runner (`R0`..`R5`, `R4U`/`R4G`)
+├── workload_grid.py                   # 🧯 Workload-shaped alert test: arrival rate x faulty-tool fraction
 ├── AGENTS.md                          # 📏 Persistent workspace rules (Principle 9: fix rules, don't re-prompt)
 ├── skills/                            # 🧩 Reusable agent skill (Principle 2: progressive disclosure)
 │   └── cymbal-claims-adjudication/

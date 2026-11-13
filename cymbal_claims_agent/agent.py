@@ -152,6 +152,7 @@ class RunConfig:
     loop_guard: bool = False            # escalate instead of stopping when max_calls is hit
     faults: bool = False                # fraud screening times out for ~20% of claims
     strict_screening_prompt: bool = False
+    fault_refs: frozenset[str] | None = None  # explicit faulty claims (workload_grid.py); None = every 5th
 
 
 R0 = RunConfig("R0", "Baseline: one frontier agent does it all")
@@ -801,6 +802,8 @@ class Agent:
             exp_decision == "DENY"
             or (payout is not None and abs(float(payout) - exp_payout) <= max(1.0, 0.01 * exp_payout))
         )
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        finished = dt.datetime.now(dt.timezone.utc)
         row = {
             "run_tag": self.run_tag,
             "run_id": self.cfg.run_id,
@@ -827,7 +830,9 @@ class Agent:
             "output_tokens": sum(c["output_tokens"] for c in calls),
             "thoughts_tokens": sum(c["thoughts_tokens"] for c in calls),
             "cost_usd": sum(c["cost_usd"] for c in calls),
-            "latency_ms": int((time.perf_counter() - t0) * 1000),
+            "latency_ms": latency_ms,
+            "started_at": (finished - dt.timedelta(milliseconds=latency_ms)).isoformat(),
+            "finished_at": finished.isoformat(),
             "simulated": self.gemini.simulated,
             "error": result.get("error"),
         }

@@ -165,9 +165,15 @@ class Tools:
 
     def __init__(self, store: Store, cfg: Any, claim_ref: str):
         self.store, self.cfg = store, cfg
-        self.faulty = bool(getattr(cfg, "faults", False)) and (
-            claim_ref[-6:].isdigit() and int(claim_ref[-6:]) % 5 == 0
-        )
+        fault_refs = getattr(cfg, "fault_refs", None)
+        if fault_refs is not None:
+            # workload_grid.py picks the faulty claims explicitly so the fault fraction can vary.
+            self.faulty = bool(getattr(cfg, "faults", False)) and claim_ref in fault_refs
+        else:
+            # Default (R4U/R4G in the blog): every fifth claim, i.e. 20% of traffic.
+            self.faulty = bool(getattr(cfg, "faults", False)) and (
+                claim_ref[-6:].isdigit() and int(claim_ref[-6:]) % 5 == 0
+            )
         self.calls = self.failures = self.decoy_calls = 0
         self.screening_down = self.guard_tripped = False
 

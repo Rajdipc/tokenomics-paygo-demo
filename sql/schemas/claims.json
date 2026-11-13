@@ -130,6 +130,16 @@
   "mode": "NULLABLE"
  },
  {
+  "name": "started_at",
+  "type": "TIMESTAMP",
+  "mode": "NULLABLE"
+ },
+ {
+  "name": "finished_at",
+  "type": "TIMESTAMP",
+  "mode": "NULLABLE"
+ },
+ {
   "name": "simulated",
   "type": "BOOL",
   "mode": "NULLABLE"

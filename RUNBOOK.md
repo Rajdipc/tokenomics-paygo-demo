@@ -313,6 +313,33 @@ Studio is optional and not needed for this demo.
 
   ![Token burn alert firing](docs/images/s11_alert.png)
 
+### 9A. Optional: workload-shaped alert test (`workload_grid.py`, ~\$7 and ~55 min)
+
+The `R4U` alert test held arrival rate constant. This step checks whether the token-burn alert can tell a
+**busy healthy** run from a **quieter looping** one, by varying arrival rate (4 or 8 claims/min) and the
+faulty-tool fraction (0%, 5%, 20%) independently.
+
+1. From Cloud Shell, in the repo folder with `.env` sourced:
+   ```bash
+   pip install google-cloud-monitoring matplotlib
+   python workload_grid.py --rates 4 8 --fault-rates 0 0.05 0.2 --minutes 6 --run-tag grid-1113 --emit-metrics
+   python workload_grid.py --analyze results/grid-1113 --cm-check
+   ```
+   The run prints one line per cell, then a table of which detection rule fired in which cell, and writes
+   `results/grid-1113/grid_summary.md` and `grid_signals.png`.
+2. Optional re-test on fresh claims, with thresholds frozen from the first grid:
+   ```bash
+   python workload_grid.py --rates 4 8 --fault-rates 0 0.05 --claim-offset 300 --run-tag grid-1113-confirm --emit-metrics
+   python workload_grid.py --analyze results/grid-1113-confirm --calibrate-on results/grid-1113 --cm-check
+   ```
+3. Console → **Monitoring → Metrics explorer**. Chart `aiplatform.googleapis.com/publisher/online_serving/token_count`
+   (sum, 1-minute alignment) and, on a second chart, `custom.googleapis.com/tbom/workload/max_calls_per_claim_1m`
+   grouped by `cell`, over the grid window. Add both to a dashboard and save it as `s17_workload_metrics.png`.
+   The token chart shows the busy healthy cell and the quiet faulty cells at similar heights; the calls-per-claim
+   chart separates them cleanly (healthy claims sit at 4).
+
+   ![Workload grid signals](docs/images/s15_workload_grid.png)
+
 ## 10. The real invoice by label (once the billing export has data)
 
 1. Open `sql/07_billing_by_label.sql`. Replace the `billing_export.gcp_billing_export_resource_v1_XXXXXX…`
@@ -421,6 +448,8 @@ rm -rf results/ deployment_metadata.json
 | `docs/images/s04_model_observability.png` | 9 | Model observability dashboard |
 | `docs/images/s05`–`s10_*.png` | 8 | The BigQuery charts used in the post |
 | `docs/images/s11_alert.png` | 9 | Alert incident |
+| `docs/images/s15_workload_grid.png` | 9A (optional) | Workload grid chart from `workload_grid.py` |
+| `docs/images/s17_workload_metrics.png` | 9A (optional) | Metrics explorer: token_count vs max calls per claim |
 | `docs/images/s13_billing_labels.png` | 10 | Invoice by label |
 | `docs/images/c09_apigee_policies.png` | 11 (optional) | Apigee proxy with LLMTokenQuota + PromptTokenLimit |
 | `docs/images/s14_apigee_analytics.png` | 11 (optional) | Apigee analytics by app, 429s after the quota runs out |
