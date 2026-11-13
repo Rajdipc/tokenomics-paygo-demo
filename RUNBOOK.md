@@ -23,9 +23,6 @@ Each step has a 📸 screenshot slot pointing at `docs/images/`. Drop your captu
 > `aiplatform.googleapis.com`. All models used are generally available: `gemini-4-argon`,
 > `gemini-3.8-flash` and `gemini-3.5-flash-lite`.
 
-> **Before you publish screenshots:** redact project IDs, billing account IDs and e-mail
-> addresses.
-
 ---
 
 ## 1. Pick or create a project
